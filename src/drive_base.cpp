@@ -4,13 +4,13 @@
 // commander instance
 // TODO: This probably should not be a global variable
 // Commander command;
-void doTargetLeft(char* cmd){command.motor(&motor_left, cmd);}
-void doTargetRight(char* cmd){command.motor(&motor_right, cmd);}
+
 Commander command = Commander(Serial);
 BLDCMotor motor_left = BLDCMotor(11);
 BLDCMotor motor_right = BLDCMotor(11);
 
-
+void doTargetLeft(char* cmd){command.motor(&motor_left, cmd);}
+// void doTargetRight(char* cmd){command.motor(&motor_right, cmd);}
 
 
 DriveBase::DriveBase() : encoder_left(MT6701Sensor()),
@@ -21,7 +21,7 @@ DriveBase::DriveBase() : encoder_left(MT6701Sensor()),
                         //  driver_right(BLDCDriver6PWM(k_right_gpio_uh, k_right_gpio_ul, k_right_gpio_vh, k_right_gpio_vl, k_right_gpio_wh, k_right_gpio_wl))
 {
 
-    encoder_left.init(k_left_enc_sda, k_left_enc_scl, k_left_enc_cs);
+    encoder_left.init(k_left_enc_scl, k_left_enc_sda, k_left_enc_cs);
     // encoder_right.init(k_right_enc_sda, k_right_enc_scl, k_right_enc_cs);
 }
 
@@ -90,8 +90,10 @@ void DriveBase::initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver, CalibratedS
 
 void DriveBase::init(bool shouldCalibrate, bool enableFocStudio)
 {
-    shouldCalibrate = shouldCalibrate;
-    enableFocStudio = enableFocStudio;
+    this -> shouldCalibrate = shouldCalibrate;
+    this -> enableFocStudio = enableFocStudio;
+    Serial.print("Enable FOC Studio? ");
+    Serial.println(enableFocStudio ? "Yes" : "No");
 
     // Initialize motors
     initHelper(motor_left, driver_left, sensor_calibrated_left, encoder_left, "left");
