@@ -1,6 +1,8 @@
 #include <imu.h>
 
 
+namespace Imu {
+
 uint16_t crc16_update(uint16_t crc, uint8_t a)
 {
   int i;
@@ -15,7 +17,7 @@ uint16_t crc16_update(uint16_t crc, uint8_t a)
   return crc;
 }
 
-void serial_print_motioncal(sensor_event_t &accel_event, sensor_event_t &gyro_event, sensor_event_t &mag_event)
+void serial_print_motioncal(sensors_event_t &accel_event, sensors_event_t &gyro_event, sensors_event_t &mag_event)
 {
     Serial.print("Raw:");
     Serial.print(int(accel_event.acceleration.x*8192/9.8)); Serial.print(",");
@@ -87,7 +89,7 @@ imu_calibration_data_t readCalibrationData(const char* name)
 
 
 
-void Imu::Imu()
+Imu::Imu()
 {
     // Instantiate IMU objects
     bool lsm6ds_success = lsm6ds.begin_I2C();
@@ -122,7 +124,7 @@ void Imu::init(bool shouldCalibrate)
                           true); // enabled!
 
     // IMU configured
-    _delay(1000);
+    delay(1000);
 
     // Calibrate IMU
     if (shouldCalibrate)
@@ -130,15 +132,15 @@ void Imu::init(bool shouldCalibrate)
         calibrate();
     }
     else
-    (
+    {
         // Read calibration data from flash
         imu_calibration_data_t calibrationData = readCalibrationData("A");
-    )
+    }
 }
 
 
 // Default initializer
-void Imu:init()
+void Imu::init()
 {
     init(false);
 }
@@ -152,17 +154,21 @@ void Imu::read()
 
 void Imu::calibrate()
 {
+    const int LED_PIN = 2;
+    pinMode(LED_PIN, OUTPUT);
+
     bool calibrationReceived = false;
 
     // Create calibration object to populate
     imu_calibration_data_t calibrationData;
 
     // Loop until we receive calibration data from motioncal
+    size_t loopcount = 0;
     while(!calibrationReceived)
     {
         // Read data from IMU and print in motioncal format
         read();
-        serial_print_motioncal();
+        serial_print_motioncal(accel_event, gyro_event, mag_event);
 
         // Update calibration status
         calibrationReceived = receiveCalibration();
@@ -188,9 +194,9 @@ void Imu::calibrate()
     // Blink onboard led three times to indicate calibration starting
     for (int i = 0; i < 3; i++)
     {
-        digitalWrite(LED_BUILTIN, HIGH);
+        digitalWrite(LED_PIN, HIGH);
         delay(1000);
-        digitalWrite(LED_BUILTIN, LOW);
+        digitalWrite(LED_PIN, LOW);
         delay(1000);
     }
 
@@ -223,10 +229,10 @@ void Imu::calibrate()
         accelZSum += accel_event.acceleration.z;
 
         // Blink onboard led to indicate calibration in progress
-        digitalWrite(LED_BUILTIN, HIGH);
-        _delay(1);
-        digitalWrite(LED_BUILTIN, LOW);
-        _delay(1);
+        digitalWrite(LED_PIN, HIGH);
+        delay(1);
+        digitalWrite(LED_PIN, LOW);
+        delay(1);
     }
 
     // Calculate the average gyro and accel data
@@ -239,7 +245,7 @@ void Imu::calibrate()
     calibrationData.accel_bias[2] = accelZSum / 1000;
 
     // Save calibration data using preferences
-    writeCalibrationData(calibrationData, 'A');
+    writeCalibrationData(calibrationData, "A");
 }
 
 
@@ -251,18 +257,18 @@ bool Imu::receiveCalibration() {
     b = Serial.read();
     if (calcount == 0 && b != 117) {
       // first byte must be 117
-      return;
+      return false;
     }
     if (calcount == 1 && b != 84) {
       // second byte must be 84
       calcount = 0;
-      return;
+      return false;
     }
     // store this byte
     caldata[calcount++] = b;
     if (calcount < 68) {
       // full calibration message is 68 bytes
-      return;
+      return false;
     }
     // verify the crc16 check
     crc = 0xFFFF;
@@ -282,7 +288,7 @@ bool Imu::receiveCalibration() {
         // found possible start within data
         calcount = 68 - i;
         memmove(caldata, caldata + i, calcount);
-        return;
+        return false;
       }
     }
     // look for 117 in last byte
@@ -293,4 +299,7 @@ bool Imu::receiveCalibration() {
       calcount = 0;
     }
   }
+    return false;
 }
+
+} // namespace Imu
