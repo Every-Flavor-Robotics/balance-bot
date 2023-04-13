@@ -8,6 +8,11 @@
 #include <Adafruit_LIS3MDL.h>
 #include <Preferences.h>
 
+
+
+// Open imu namespace
+namespace Imu {
+
 // Type for saving and loading calibration parameters to/from EEPROM
 const int IMU_CALIBRATION_DATA_LEN = (9+3+3+3) * sizeof(float);
 typedef union {
@@ -27,7 +32,7 @@ typedef union {
 
 // Helper function for calculating the CRC16 checksum
 extern uint16_t crc16_update(uint16_t crc, uint8_t a);
-extern void serial_print_motioncal(sensor_event_t &accel_event, sensor_event_t &gyro_event, sensor_event_t &mag_event);
+extern void serial_print_motioncal(sensors_event_t &accel_event, sensors_event_t &gyro_event, sensors_event_t &mag_event);
 
 class Imu {
 public:
@@ -69,7 +74,7 @@ private:
 
 
 };
+} // namespace imu
 
 
-
-#endif // DRIVE_BASE_H
+#endif // IMU_H
