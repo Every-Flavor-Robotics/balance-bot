@@ -36,31 +36,31 @@ public:
 
 private:
     // Left Motor and Encoder pins
-    const int k_left_enc_sda = 21;
-    const int k_left_enc_scl = 22;
-    const int k_left_enc_cs  = 32;
-    const int k_left_gpio_uh = 33;
-    const int k_left_gpio_ul = 25;
-    const int k_left_gpio_vh = 26;
-    const int k_left_gpio_vl = 27;
-    const int k_left_gpio_wh = 14;
-    const int k_left_gpio_wl = 12;
+    const int k_left_enc_sda = 15;
+    const int k_left_enc_scl = 32;
+    const int k_left_enc_cs  = 14;
+    const int k_left_gpio_uh = 18;
+    const int k_left_gpio_ul =  5;
+    const int k_left_gpio_vh = 17;
+    const int k_left_gpio_vl = 16;
+    const int k_left_gpio_wh =  4;
+    const int k_left_gpio_wl =  0;
 
     // Right Motor and Encoder pins
-    const int k_right_enc_sda = 21;
-    const int k_right_enc_scl = 22;
-    const int k_right_enc_cs  = 32;
-    const int k_right_gpio_uh = 33;
-    const int k_right_gpio_ul = 25;
-    const int k_right_gpio_vh = 26;
-    const int k_right_gpio_vl = 27;
-    const int k_right_gpio_wh = 14;
-    const int k_right_gpio_wl = 12;
+    const int k_right_enc_sda = 15;
+    const int k_right_enc_scl = 32;
+    const int k_right_enc_cs  = 12;
+    const int k_right_gpio_uh = 23;
+    const int k_right_gpio_ul = 22;
+    const int k_right_gpio_vh = 33;
+    const int k_right_gpio_vl = 25;
+    const int k_right_gpio_wh = 21;
+    const int k_right_gpio_wl = 19;
 
     // Motor and Encoder parameters
-    const float k_voltage_power_supply = 7.0;
-    const float k_voltage_limit = 7.0;
-    const float k_current_limit = 2.0;
+    const float k_voltage_power_supply = 9.0;
+    const float k_voltage_limit = 9.0;
+    const float k_current_limit = 1.0;
     const float k_velocity_limit = 100.0;
     const float k_voltage_calibration = 2.0;
 
@@ -72,9 +72,9 @@ private:
     CalibratedSensor sensor_calibrated_left;
     BLDCDriver6PWM driver_left;
 
-    // MT6701Sensor encoder_right;
-    // CalibratedSensor sensor_calibrated_right;
-    // BLDCDriver6PWM driver_right;
+    MT6701Sensor encoder_right;
+    CalibratedSensor sensor_calibrated_right;
+    BLDCDriver6PWM driver_right;
 
 
 

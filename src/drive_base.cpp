@@ -10,19 +10,18 @@ BLDCMotor motor_left = BLDCMotor(11);
 BLDCMotor motor_right = BLDCMotor(11);
 
 void doTargetLeft(char* cmd){command.motor(&motor_left, cmd);}
-// void doTargetRight(char* cmd){command.motor(&motor_right, cmd);}
+void doTargetRight(char* cmd){command.motor(&motor_right, cmd);}
 
 
 DriveBase::DriveBase() : encoder_left(MT6701Sensor()),
                          sensor_calibrated_left(CalibratedSensor(encoder_left)),
-                         driver_left(BLDCDriver6PWM(k_left_gpio_uh, k_left_gpio_ul, k_left_gpio_vh, k_left_gpio_vl, k_left_gpio_wh, k_left_gpio_wl))//,
-                        //  encoder_right(MT6701Sensor()),
-                        //  sensor_calibrated_right(CalibratedSensor(encoder_right)),
-                        //  driver_right(BLDCDriver6PWM(k_right_gpio_uh, k_right_gpio_ul, k_right_gpio_vh, k_right_gpio_vl, k_right_gpio_wh, k_right_gpio_wl))
+                         driver_left(BLDCDriver6PWM(k_left_gpio_uh, k_left_gpio_ul, k_left_gpio_vh, k_left_gpio_vl, k_left_gpio_wh, k_left_gpio_wl)),
+                         encoder_right(MT6701Sensor()),
+                         sensor_calibrated_right(CalibratedSensor(encoder_right)),
+                         driver_right(BLDCDriver6PWM(k_right_gpio_uh, k_right_gpio_ul, k_right_gpio_vh, k_right_gpio_vl, k_right_gpio_wh, k_right_gpio_wl))
 {
-
     encoder_left.init(k_left_enc_scl, k_left_enc_sda, k_left_enc_cs);
-    // encoder_right.init(k_right_enc_sda, k_right_enc_scl, k_right_enc_cs);
+    encoder_right.init(k_right_enc_sda, k_right_enc_scl, k_right_enc_cs);
 }
 
 void DriveBase::init()
@@ -97,13 +96,13 @@ void DriveBase::init(bool shouldCalibrate, bool enableFocStudio)
 
     // Initialize motors
     initHelper(motor_left, driver_left, sensor_calibrated_left, encoder_left, "left");
-    // initHelper(motor_right, driver_right, sensor_calibrated_right, encoder_right, "right");
+    initHelper(motor_right, driver_right, sensor_calibrated_right, encoder_right, "right");
 
     // add command to commander
     if(enableFocStudio)
     {
         command.add('L', doTargetLeft , (char*)"target");
-        // command.add('R', doTargetRight, (char*)"target");
+        command.add('R', doTargetRight, (char*)"target");
     }
 
 }
@@ -111,9 +110,11 @@ void DriveBase::init(bool shouldCalibrate, bool enableFocStudio)
 void DriveBase::loop()
 {
     motor_left.loopFOC();
+    motor_right.loopFOC();
 
     // this function can be run at much lower frequency than loopFOC()
     motor_left.move();
+    motor_right.move();
 
     // Monitoring, use only if necessary as it slows loop down significantly
     if(enableFocStudio)
@@ -122,6 +123,7 @@ void DriveBase::loop()
         command.run();
 
         motor_left.monitor();
+        motor_right.monitor();
     }
 }
 
