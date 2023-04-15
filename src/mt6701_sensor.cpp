@@ -3,6 +3,7 @@
 
 static const float ALPHA = 0.4;
 
+static bool isInitialized = false;
 
 static uint8_t tableCRC6[64] = {
  0x00, 0x03, 0x06, 0x05, 0x0C, 0x0F, 0x0A, 0x09,
@@ -53,8 +54,13 @@ void MT6701Sensor::init(int scl, int sda, int cs) {
       .quadhd_io_num = -1,
       .max_transfer_sz = 1000,
   };
-  esp_err_t ret = spi_bus_initialize(HSPI_HOST, &tx_bus_config, 1);
-  ESP_ERROR_CHECK(ret);
+
+  esp_err_t ret;
+  if(!isInitialized) {
+    isInitialized = true;
+    ret = spi_bus_initialize(HSPI_HOST, &tx_bus_config, 1);
+    ESP_ERROR_CHECK(ret);
+  }
 
   spi_device_interface_config_t tx_device_config = {
       .command_bits=0,
