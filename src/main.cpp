@@ -2,6 +2,7 @@
 #include "Options.h"
 #include "drive_base.h"
 #include "imu.h"
+#include "common/pid.h"
 
 // Create a start-up menu with 3 non-default options
 Options options(4);
@@ -14,6 +15,9 @@ DriveBase drive_base = DriveBase();
 
 // Create IMU
 Imu::Imu imu = Imu::Imu();
+
+// Instantiate a PID controller for balancing
+PIDController pid = PIDController(0.3f, 0.001f, 0.0f, 5.0f, 7.0f);
 
 // target velocities will be calculated as a percentage of the max velocity
 constexpr float max_velocity_rad_per_sec = 25.0f;
@@ -44,18 +48,29 @@ void loop()
     drive_base.loop();
     imu.loop();
 
+    // Compute error
+    // For balancing alone, we only need the pitch angle
+    float error = imu.getPitch();
+
+    float command = pid.operator(error);
+
+    drive_base.setTarget(command, command);
+
+
     // Print out the current roll, pitch, and yaw
     // RPY for the IMU aligns with the robot's frame of reference
     // Pitch will be the forward/backward tilt
-    Serial.print("Roll: ");
-    Serial.print(imu.getRoll());
+    // Serial.print("Roll: ");
+    // Serial.print(imu.getRoll());
     Serial.print(" Pitch: ");
     Serial.print(imu.getPitch());
-    Serial.print(" Yaw: ");
-    Serial.println(imu.getYaw());
 
-    // Set motor target using:
-    // drive_base.setTarget(target_left, target_right);
+    Serial.print(" Command: ");
+    Serial.print(command);
+    // Serial.print(" Yaw: ");
+    // Serial.println(imu.getYaw());
+
+
 
 
 
