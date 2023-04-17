@@ -29,7 +29,7 @@ void setup()
 
     drive_base.init(shouldCalibrate, enableFocStudio);
 
-    _delay(1000);
+    delay(1000);
 }
 
 void loop()
