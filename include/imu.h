@@ -7,7 +7,7 @@
 #include <Adafruit_LSM6DSOX.h>
 #include <Adafruit_LIS3MDL.h>
 #include <Preferences.h>
-
+#include <Adafruit_AHRS.h>
 
 
 // Open imu namespace
@@ -33,6 +33,8 @@ typedef union {
 // Helper function for calculating the CRC16 checksum
 extern uint16_t crc16_update(uint16_t crc, uint8_t a);
 extern void serial_print_motioncal(sensors_event_t &accel_event, sensors_event_t &gyro_event, sensors_event_t &mag_event);
+extern Adafruit_LSM6DSOX lsm6ds;
+extern Adafruit_LIS3MDL lis3mdl;
 
 class Imu {
 public:
@@ -46,16 +48,27 @@ public:
 
     void loop();
 
+    float getRoll();
+    float getPitch();
+    float getYaw();
+
+
 
 private:
     // IMU sensor devices
-    Adafruit_LSM6DSOX lsm6ds;
-    Adafruit_LIS3MDL lis3mdl;
+
 
     // Buffers for reading in magnetic calibration data
     float offsets[16];
     byte caldata[68]; // buffer to receive magnetic calibration data
     byte calcount=0;
+    imu_calibration_data_t calibrationData;
+
+    // Filter
+    Adafruit_Madgwick filter;
+    // Last filter update time
+    unsigned long lastUpdate;
+
 
     // Event objects to store IMU data
     sensors_event_t accel_event, gyro_event, mag_event, temp;
@@ -70,8 +83,8 @@ private:
     // Reads and parses calibration data sent over serial from MotionCal
     bool receiveCalibration();
 
-
-
+    // Apply calibration and change units
+    void applyCalibration();
 
 };
 } // namespace imu

@@ -1,7 +1,10 @@
 #include <imu.h>
 
-
 namespace Imu {
+
+bool imuInitialized = false;
+Adafruit_LSM6DSOX lsm6ds;
+Adafruit_LIS3MDL lis3mdl;
 
 uint16_t crc16_update(uint16_t crc, uint8_t a)
 {
@@ -91,16 +94,21 @@ imu_calibration_data_t readCalibrationData(const char* name)
 
 Imu::Imu()
 {
-    // Instantiate IMU objects
-    bool lsm6ds_success = lsm6ds.begin_I2C();
-    bool lis3mdl_success = lis3mdl.begin_I2C();
 }
 
 void Imu::init(bool shouldCalibrate)
 {
     // TODO: figure out how to calibrate the IMU
 
-
+    if(!imuInitialized)
+    {
+        // Start I2C bus
+        Wire1.begin(27, 26);
+        // Instantiate IMU objects
+        bool lsm6ds_success = lsm6ds.begin_I2C(LSM6DS_I2CADDR_DEFAULT, &Wire1);
+        bool lis3mdl_success = lis3mdl.begin_I2C(LIS3MDL_I2CADDR_DEFAULT, &Wire1);
+        imuInitialized = true;
+    }
 
     // Configure IMU rates and ranges
     // Set IMU range
@@ -134,8 +142,23 @@ void Imu::init(bool shouldCalibrate)
     else
     {
         // Read calibration data from flash
-        imu_calibration_data_t calibrationData = readCalibrationData("A");
+        calibrationData = readCalibrationData("A");
+
+        // CALIBRATION DEBUG
+        // Serial.printf("Accel bias: %f, %f, %f", calibrationData.accel_bias[0], calibrationData.accel_bias[1], calibrationData.accel_bias[2]);
+        // Serial.println();
+        // Serial.printf("Gyro bias: %f, %f, %f", calibrationData.gyro_bias[0], calibrationData.gyro_bias[1], calibrationData.gyro_bias[2]);
+        // Serial.println();
+        // Serial.printf("Mag bias: %f, %f, %f", calibrationData.mag_hard_iron[0], calibrationData.mag_hard_iron[1], calibrationData.mag_hard_iron[2]);
+        // Serial.println();
+        // Serial.printf("Mag scale: %f, %f, %f", calibrationData.mag_soft_iron[0], calibrationData.mag_soft_iron[1], calibrationData.mag_soft_iron[2]);
+        // Serial.printf("%f %f %f", calibrationData.mag_soft_iron[3], calibrationData.mag_soft_iron[4], calibrationData.mag_soft_iron[5]);
+        // Serial.printf("%f %f %f", calibrationData.mag_soft_iron[6], calibrationData.mag_soft_iron[7], calibrationData.mag_soft_iron[8]);
+
     }
+
+    filter.begin(100);
+    lastUpdate = millis();
 }
 
 
@@ -150,17 +173,27 @@ void Imu::read()
     //  /* Get new normalized sensor events */
     lsm6ds.getEvent(&accel_event, &gyro_event, &temp);
     lis3mdl.getEvent(&mag_event);
+
+
 }
 
 void Imu::calibrate()
 {
-    const int LED_PIN = 2;
+    const int LED_PIN = 13;
     pinMode(LED_PIN, OUTPUT);
 
-    bool calibrationReceived = false;
+    for (int i = 0; i < 3; i++)
+    {
+        digitalWrite(LED_PIN, HIGH);
+        delay(1000);
+        digitalWrite(LED_PIN, LOW);
+        delay(1000);
+    }
 
-    // Create calibration object to populate
-    imu_calibration_data_t calibrationData;
+    delay(1000);
+
+
+    bool calibrationReceived = false;
 
     // Loop until we receive calibration data from motioncal
     size_t loopcount = 0;
@@ -300,6 +333,69 @@ bool Imu::receiveCalibration() {
     }
   }
     return false;
+}
+
+void Imu::applyCalibration()
+{
+    // Apply gyro bias
+    gyro_event.gyro.x -= calibrationData.gyro_bias[0];
+    gyro_event.gyro.y -= calibrationData.gyro_bias[1];
+    gyro_event.gyro.z -= calibrationData.gyro_bias[2];
+
+    // Change unit to degrees per second
+    gyro_event.gyro.x *= SENSORS_RADS_TO_DPS;
+    gyro_event.gyro.y *= SENSORS_RADS_TO_DPS;
+    gyro_event.gyro.z *= SENSORS_RADS_TO_DPS;
+
+    // Skip accel bias for now
+
+    // Apply magnetometer calibration
+    // First apply hard iron calibration
+    float mx = mag_event.magnetic.x - calibrationData.mag_hard_iron[0];
+    float my = mag_event.magnetic.y - calibrationData.mag_hard_iron[1];
+    float mz = mag_event.magnetic.z - calibrationData.mag_hard_iron[2];
+
+    // Then apply soft iron calibration
+    mag_event.magnetic.x = mx * calibrationData.mag_soft_iron[0] + my * calibrationData.mag_soft_iron[1] + mz * calibrationData.mag_soft_iron[2];
+    mag_event.magnetic.y = mx * calibrationData.mag_soft_iron[3] + my * calibrationData.mag_soft_iron[4] + mz * calibrationData.mag_soft_iron[5];
+    mag_event.magnetic.z = mx * calibrationData.mag_soft_iron[6] + my * calibrationData.mag_soft_iron[7] + mz * calibrationData.mag_soft_iron[8];
+}
+
+void Imu::loop()
+{
+    // Read data from IMU and print in motioncal format
+    read();
+
+    // Apply calibration
+    applyCalibration();
+
+    filter.update(gyro_event.gyro.x,
+                  gyro_event.gyro.y,
+                  gyro_event.gyro.z,
+                  accel_event.acceleration.x,
+                  accel_event.acceleration.y,
+                  accel_event.acceleration.z,
+                  mag_event.magnetic.x,
+                  mag_event.magnetic.y,
+                  mag_event.magnetic.z,
+                  (millis() - lastUpdate) / 1000.0f);
+
+    lastUpdate = millis();
+}
+
+float Imu::getRoll()
+{
+    return filter.getRoll();
+}
+
+float Imu::getPitch()
+{
+    return filter.getPitch();
+}
+
+float Imu::getYaw()
+{
+    return filter.getYaw();
 }
 
 } // namespace Imu
