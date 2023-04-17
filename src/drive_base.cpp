@@ -78,8 +78,6 @@ void DriveBase::initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver, CalibratedS
     // Init FOC
     motor.initFOC();
 
-    // Set motor to 0
-    // motor.setTarget(0);
 
     // Print init message
     Serial.print("Initialized ");
@@ -105,6 +103,12 @@ void DriveBase::init(bool shouldCalibrate, bool enableFocStudio)
         command.add('R', doTargetRight, (char*)"target");
     }
 
+}
+
+void DriveBase::setTarget(float target_left, float target_right)
+{
+    motor_left.move(target_left);
+    motor_right.move(target_right);
 }
 
 void DriveBase::loop()
