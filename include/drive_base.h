@@ -30,6 +30,8 @@ public:
 
     void loop();
 
+    void setTarget(float target_left, float target_right);
+
     // void doTargetLeft(char* cmd);
     // void doTargetRight(char* cmd);
 
