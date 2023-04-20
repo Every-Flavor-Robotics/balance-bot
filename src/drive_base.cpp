@@ -13,15 +13,13 @@ void doTargetLeft(char* cmd){command.motor(&motor_left, cmd);}
 void doTargetRight(char* cmd){command.motor(&motor_right, cmd);}
 
 
-DriveBase::DriveBase() : encoder_left(MagneticSensorMT6701SSI(14)),
-                         driver_left(BLDCDriver6PWM(18, 5, 17, 16, 4, 0)),
+DriveBase::DriveBase() : encoder_left(MagneticSensorMT6701SSI(k_left_enc_cs)),
+                         driver_left(BLDCDriver6PWM(k_left_gpio_uh, k_left_gpio_ul, k_left_gpio_vh, k_left_gpio_vl, k_left_gpio_wh, k_left_gpio_wl)),
                          sensor_calibrated_left(CalibratedSensor(encoder_left)),
                          encoder_right(MagneticSensorMT6701SSI(k_right_enc_cs)),
                          sensor_calibrated_right(CalibratedSensor(encoder_right)),
                          driver_right(BLDCDriver6PWM(k_right_gpio_uh, k_right_gpio_ul, k_right_gpio_vh, k_right_gpio_vl, k_right_gpio_wh, k_right_gpio_wl))
-{
-
-}
+{}
 
 void DriveBase::init()
 {
@@ -31,8 +29,8 @@ void DriveBase::init()
 
 void DriveBase::initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver, CalibratedSensor& sensor_calibrated, MagneticSensorMT6701SSI& encoder, const char* name)
 {
+    // Init encoder
     encoder.init(&hspi);
-
 
     // Link encoder to motor
     motor.linkSensor(&encoder);
@@ -82,7 +80,6 @@ void DriveBase::initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver, CalibratedS
     // Init FOC
     motor.initFOC();
 
-
     // Print init message
     Serial.print("Initialized ");
     Serial.println(name);
@@ -91,6 +88,7 @@ void DriveBase::initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver, CalibratedS
 
 void DriveBase::init(bool shouldCalibrate, bool enableFocStudio)
 {
+    // Guard to prevent multiple initializations, which could cause a crash
     if(!hspiInitialized)
     {
         hspiInitialized = true;
@@ -106,6 +104,8 @@ void DriveBase::init(bool shouldCalibrate, bool enableFocStudio)
     initHelper(motor_left, driver_left, sensor_calibrated_left, encoder_left, "left");
     initHelper(motor_right, driver_right, sensor_calibrated_right, encoder_right, "right");
 
+
+    // Set PID parameters for both motors
     motor_right.PID_velocity.P = 0.75;
     motor_right.PID_velocity.I = 0.09;
     motor_right.PID_velocity.D = 0.001;
@@ -172,4 +172,3 @@ float DriveBase::getRightVelocity()
 {
     return motor_right.shaftVelocity();
 }
-//
