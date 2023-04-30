@@ -3,7 +3,7 @@
 #include "drive_base.h"
 #include "imu.h"
 #include "common/pid.h"
-
+#include "data_stream.h"
 
 // Create a start-up menu with 3 non-default options
 Options options(4);
@@ -22,6 +22,10 @@ PIDController pid = PIDController(1.11f, 13.85f, 0.015f, 10000.0f, 20.0f);
 
 // target velocities will be calculated as a percentage of the max velocity
 constexpr float max_velocity_rad_per_sec = 25.0f;
+
+// Create a data stream for the pitch and time
+DataStream<float> pitch_data_stream = DataStream<float>("pitch", 1000);
+DataStream<float> time_data_stream = DataStream<float>("time", 1000);
 
 void setup()
 {
@@ -67,10 +71,20 @@ void loop()
     // Compute error
     // For balancing alone, we only need the pitch angle
     float error = imu.getPitch();
+    bool time_success = time_data_stream.add_data_point(millis()/1000.0f);
+    bool pitch_success = pitch_data_stream.add_data_point(error);
 
     float command = pid(error);
 
     drive_base->setTarget(command, command);
+
+    if(!time_success)
+    {
+        pitch_data_stream.output_data_stream();
+        time_data_stream.output_data_stream();
+        pitch_data_stream.reset();
+        time_data_stream.reset();
+    }
 
     // Print loop time
     // Serial.print("Loop time: ");
