@@ -385,17 +385,63 @@ void Imu::loop()
 
 float Imu::getRoll()
 {
-    return filter.getRoll();
+    return filter.getRollRadians();
 }
 
 float Imu::getPitch()
 {
-    return filter.getPitch();
+    return filter.getPitchRadians();
 }
 
 float Imu::getYaw()
 {
-    return filter.getYaw();
+    return filter.getYawRadians();
+}
+
+float Imu::getRawAccelX()
+{
+    return accel_event.acceleration.x;
+}
+
+float Imu::getRawAccelY()
+{
+    return accel_event.acceleration.y;
+}
+
+float Imu::getRawAccelZ()
+{
+    return accel_event.acceleration.z;
+}
+
+float Imu::getRawGyroX()
+{
+    return gyro_event.gyro.x;
+}
+
+float Imu::getRawGyroY()
+{
+    return gyro_event.gyro.y;
+}
+
+float Imu::getRawGyroZ()
+{
+    return gyro_event.gyro.z;
+
+}
+
+float Imu::getRawMagX()
+{
+    return mag_event.magnetic.x;
+}
+
+float Imu::getRawMagY()
+{
+    return mag_event.magnetic.y;
+}
+
+float Imu::getRawMagZ()
+{
+    return mag_event.magnetic.z;
 }
 
 } // namespace Imu

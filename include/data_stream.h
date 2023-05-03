@@ -5,6 +5,13 @@
 
 #include <Arduino.h>
 
+
+void close(const char* fname)
+{
+    Serial.print("_data_stream_:_close_:");
+    Serial.println(fname);
+}
+
 // Templatized version of data stream
 template <typename T>
 class DataStream
@@ -23,7 +30,9 @@ public:
     // Delete the existing data
     void reset();
 
-    void output_data_stream();
+    // Flush data stream to serial
+    // Allow user to specify a postfix to append to the name of the data stream
+    void output_data_stream(const char* postfix);
 private:
 
     const char* name;
@@ -82,17 +91,19 @@ void DataStream<T>::reset()
 
 // Templatized function to output a data stream to a serial port
 template <typename T>
-void DataStream<T>::output_data_stream()
+void DataStream<T>::output_data_stream(const char* postfix)
 {
     // Print the name of the data stream
     Serial.print("_data_stream_:");
     Serial.print(get_name());
+    Serial.print("_");
+    Serial.print(postfix);
     Serial.print(":");
 
     // Print the data
     for(int i = 0; i < get_num_data_points(); i++)
     {
-        Serial.print(data[i]);
+        Serial.print(data[i], 10);
         Serial.print(",");
     }
 
