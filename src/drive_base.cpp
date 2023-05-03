@@ -43,7 +43,7 @@ void DriveBase::initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver, CalibratedS
 
     // Set motor control parameters
     motor.foc_modulation = FOCModulationType::SpaceVectorPWM;
-    motor.controller = MotionControlType::velocity;
+    motor.controller = MotionControlType::torque;
     motor.torque_controller = TorqueControlType::voltage;
     motor.velocity_limit = k_velocity_limit;
     motor.voltage_limit = k_voltage_limit;
@@ -132,8 +132,8 @@ void DriveBase::setTarget(float target_left, float target_right)
 {
     if(!enableFocStudio)
     {
-        motor_left.move(target_left);
-        motor_right.move(-target_right);
+        motor_left.move(-target_left);
+        motor_right.move(target_right);
     }
 }
 
@@ -163,9 +163,19 @@ void DriveBase::enable()
     motor_right.enable();
 }
 
+float DriveBase::getLeftPosition()
+{
+    return motor_left.shaftAngle();
+}
+
 float DriveBase::getLeftVelocity()
 {
     return motor_left.shaftVelocity();
+}
+
+float DriveBase::getLeftVoltage()
+{
+    return motor_left.voltage.q;
 }
 
 float DriveBase::getRightVelocity()

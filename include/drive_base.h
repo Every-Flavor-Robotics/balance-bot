@@ -8,7 +8,7 @@
 #include "encoders/calibrated/CalibratedSensor.h"
 #include <Wire.h>
 #include "SPI.h"
-#include "encoders/MT6701/MagneticSensorMT6701SSI.h"
+#include "encoders/mt6701/MagneticSensorMT6701SSI.h"
 
 // TODO: These are global because the SimpleFOC commander API doesn't support lambdas to save state in for the callback
 // Need to decide if this is the best solution, or if there is something better we can do
@@ -34,7 +34,10 @@ public:
 
     void enable();
 
+    float getLeftPosition();
     float getLeftVelocity();
+    float getLeftVoltage();
+
     float getRightVelocity();
 
     // void doTargetLeft(char* cmd);
