@@ -52,6 +52,19 @@ public:
     float getPitch();
     float getYaw();
 
+    float getRawGyroX();
+    float getRawGyroY();
+    float getRawGyroZ();
+
+    float getRawAccelX();
+    float getRawAccelY();
+    float getRawAccelZ();
+
+    float getRawMagX();
+    float getRawMagY();
+    float getRawMagZ();
+
+
 
 
 private:
