@@ -30,21 +30,21 @@ class DriveBase
   void init();
 
   // Init motors and encoders, optionally calibrating and/or enabling FOCStudio
-  void init(bool shouldCalibrate, bool enableFocStudio);
+  void init(bool should_calibrate, bool enable_foc_studio);
 
   void loop();
 
-  void setTarget(float target_left, float target_right);
+  void set_target(float target_left, float target_right);
 
   void enable();
 
-  float getLeftPosition();
-  float getLeftVelocity();
-  float getLeftVoltage();
+  float get_left_position();
+  float get_left_velocity();
+  float get_left_voltage();
 
-  float getRightPosition();
-  float getRightVelocity();
-  float getRightVoltage();
+  float get_right_position();
+  float get_right_velocity();
+  float get_right_voltage();
 
   // void doTargetLeft(char* cmd);
   // void doTargetRight(char* cmd);
@@ -77,8 +77,8 @@ class DriveBase
   const float k_velocity_limit = 100.0;
   const float k_voltage_calibration = 2.0;
 
-  bool shouldCalibrate;
-  bool enableFocStudio;
+  bool should_calibrate;
+  bool enable_foc_studio;
 
   // Encoder, motor, and driver instances
   // MT6701Sensor encoder_left;
@@ -90,9 +90,9 @@ class DriveBase
   CalibratedSensor sensor_calibrated_right;
   BLDCDriver6PWM driver_right;
 
-  void initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver,
-                  CalibratedSensor& sensor_calibrated,
-                  MagneticSensorMT6701SSI& encoder, const char* name);
+  void init_helper(BLDCMotor& motor, BLDCDriver6PWM& driver,
+                   CalibratedSensor& sensor_calibrated,
+                   MagneticSensorMT6701SSI& encoder, const char* name);
 };
 
 #endif  // DRIVE_BASE_H

@@ -49,41 +49,41 @@ class Imu
   void init();
 
   // Init IMU, with option to calibrate or not
-  void init(bool shouldCalibrate);
+  void init(bool should_calibrate);
 
   void loop();
 
-  float getRoll();
-  float getPitch();
-  float getYaw();
+  float get_roll();
+  float get_pitch();
+  float get_yaw();
 
-  float getPitchRate();
+  // TODO: NOT IMPLEMENTED because the magdwick filter needs to be updated to
+  // return this
+  //   float get_pitch_rate();
 
-  float getRawGyroX();
-  float getRawGyroY();
-  float getRawGyroZ();
+  float get_raw_gyro_x();
+  float get_raw_gyro_y();
+  float get_raw_gyro_z();
 
-  float getRawAccelX();
-  float getRawAccelY();
-  float getRawAccelZ();
+  float get_raw_accel_x();
+  float get_raw_accel_y();
+  float get_raw_accel_z();
 
-  float getRawMagX();
-  float getRawMagY();
-  float getRawMagZ();
+  float get_raw_mag_x();
+  float get_raw_mag_y();
+  float get_raw_mag_z();
 
  private:
-  // IMU sensor devices
-
   // Buffers for reading in magnetic calibration data
   float offsets[16];
   byte caldata[68];  // buffer to receive magnetic calibration data
   byte calcount = 0;
-  imu_calibration_data_t calibrationData;
+  imu_calibration_data_t calibration_data;
 
   // Filter
   Adafruit_Madgwick filter;
   // Last filter update time
-  unsigned long lastUpdate;
+  unsigned long last_update;
 
   // Event objects to store IMU data
   sensors_event_t accel_event, gyro_event, mag_event, temp;
@@ -98,10 +98,10 @@ class Imu
   void calibrate();
 
   // Reads and parses calibration data sent over serial from MotionCal
-  bool receiveCalibration();
+  bool receive_calibration();
 
   // Apply calibration and change units
-  void applyCalibration();
+  void apply_calibration();
 };
 }  // namespace Imu
 

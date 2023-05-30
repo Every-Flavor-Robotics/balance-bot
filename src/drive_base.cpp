@@ -1,14 +1,14 @@
 #include "drive_base.h"
 
 SPIClass hspi = SPIClass(HSPI);
-bool hspiInitialized = false;
+bool hspi_initialized = false;
 
 Commander command = Commander(Serial);
 BLDCMotor motor_left = BLDCMotor(11);
 BLDCMotor motor_right = BLDCMotor(11);
 
-void doTargetLeft(char* cmd) { command.motor(&motor_left, cmd); }
-void doTargetRight(char* cmd) { command.motor(&motor_right, cmd); }
+void do_target_left(char* cmd) { command.motor(&motor_left, cmd); }
+void do_target_right(char* cmd) { command.motor(&motor_right, cmd); }
 
 DriveBase::DriveBase()
     : encoder_left(MagneticSensorMT6701SSI(k_left_enc_cs)),
@@ -26,9 +26,9 @@ DriveBase::DriveBase()
 
 void DriveBase::init() { init(false, false); }
 
-void DriveBase::initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver,
-                           CalibratedSensor& sensor_calibrated,
-                           MagneticSensorMT6701SSI& encoder, const char* name)
+void DriveBase::init_helper(BLDCMotor& motor, BLDCDriver6PWM& driver,
+                            CalibratedSensor& sensor_calibrated,
+                            MagneticSensorMT6701SSI& encoder, const char* name)
 {
   // Init encoder
   encoder.init(&hspi);
@@ -51,7 +51,7 @@ void DriveBase::initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver,
   motor.current_limit = k_current_limit;
 
   // FOCStudio options
-  if (enableFocStudio)
+  if (enable_foc_studio)
   {
     // use monitoring
     motor.monitor_variables = _MON_TARGET | _MON_VEL | _MON_ANGLE;
@@ -63,7 +63,7 @@ void DriveBase::initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver,
 
   // Calibrate encoders
   sensor_calibrated.voltage_calibration = k_voltage_calibration;
-  if (shouldCalibrate)
+  if (should_calibrate)
   {
     sensor_calibrated.calibrate(motor, name);
   }
@@ -85,25 +85,25 @@ void DriveBase::initHelper(BLDCMotor& motor, BLDCDriver6PWM& driver,
   Serial.println(name);
 }
 
-void DriveBase::init(bool shouldCalibrate, bool enableFocStudio)
+void DriveBase::init(bool should_calibrate, bool enable_foc_studio)
 {
   // Guard to prevent multiple initializations, which could cause a crash
-  if (!hspiInitialized)
+  if (!hspi_initialized)
   {
-    hspiInitialized = true;
+    hspi_initialized = true;
     hspi.begin(k_left_enc_scl, k_left_enc_sda, 27, 3);
   }
 
-  this->shouldCalibrate = shouldCalibrate;
-  this->enableFocStudio = enableFocStudio;
+  this->should_calibrate = should_calibrate;
+  this->enable_foc_studio = enable_foc_studio;
   Serial.print("Enable FOC Studio? ");
-  Serial.println(enableFocStudio ? "Yes" : "No");
+  Serial.println(enable_foc_studio ? "Yes" : "No");
 
   // Initialize motors
-  initHelper(motor_left, driver_left, sensor_calibrated_left, encoder_left,
-             "left");
-  initHelper(motor_right, driver_right, sensor_calibrated_right, encoder_right,
-             "right");
+  init_helper(motor_left, driver_left, sensor_calibrated_left, encoder_left,
+              "left");
+  init_helper(motor_right, driver_right, sensor_calibrated_right, encoder_right,
+              "right");
 
   // Set PID parameters for both motors
   motor_right.PID_velocity.P = 0.75;
@@ -117,19 +117,19 @@ void DriveBase::init(bool shouldCalibrate, bool enableFocStudio)
   motor_left.PID_velocity.output_ramp = 10000.0;
 
   // add command to commander
-  if (enableFocStudio)
+  if (enable_foc_studio)
   {
-    command.add('L', doTargetLeft, (char*)"target");
-    command.add('R', doTargetRight, (char*)"target");
+    command.add('L', do_target_left, (char*)"target");
+    command.add('R', do_target_right, (char*)"target");
   }
 
   motor_left.disable();
   motor_right.disable();
 }
 
-void DriveBase::setTarget(float target_left, float target_right)
+void DriveBase::set_target(float target_left, float target_right)
 {
-  if (!enableFocStudio)
+  if (!enable_foc_studio)
   {
     motor_left.move(-target_left);
     motor_right.move(target_right);
@@ -146,7 +146,7 @@ void DriveBase::loop()
   motor_right.move();
 
   // Monitoring, use only if necessary as it slows loop down significantly
-  if (enableFocStudio)
+  if (enable_foc_studio)
   {
     // user communication
     command.run();
@@ -163,10 +163,10 @@ void DriveBase::enable()
 }
 
 // Getters
-float DriveBase::getLeftPosition() { return motor_left.shaftAngle(); }
-float DriveBase::getLeftVelocity() { return motor_left.shaftVelocity(); }
-float DriveBase::getLeftVoltage() { return motor_left.voltage.q; }
+float DriveBase::get_left_position() { return motor_left.shaftAngle(); }
+float DriveBase::get_left_velocity() { return motor_left.shaftVelocity(); }
+float DriveBase::get_left_voltage() { return motor_left.voltage.q; }
 
-float DriveBase::getRightPosition() { return motor_right.shaftAngle(); }
-float DriveBase::getRightVelocity() { return motor_right.shaftVelocity(); }
-float DriveBase::getRightVoltage() { return motor_right.voltage.q; }
+float DriveBase::get_right_position() { return motor_right.shaftAngle(); }
+float DriveBase::get_right_velocity() { return motor_right.shaftVelocity(); }
+float DriveBase::get_right_voltage() { return motor_right.voltage.q; }
