@@ -3,7 +3,7 @@
 namespace Imu
 {
 
-bool imuInitialized = false;
+bool imu_initialized = false;
 Adafruit_LSM6DSOX lsm6ds;
 Adafruit_LIS3MDL lis3mdl;
 
@@ -73,7 +73,7 @@ void serial_print_motioncal(sensors_event_t& accel_event,
 // Return char array with key name for calibration data
 void get_key(const char* name, char* key) { sprintf(key, "imu_%s", name); }
 
-void writeCalibrationData(imu_calibration_data_t& data, const char* name)
+void write_calibration_data(imu_calibration_data_t& data, const char* name)
 {
   // Open preferences with namespace "calibration"
   Preferences preferences;
@@ -90,7 +90,7 @@ void writeCalibrationData(imu_calibration_data_t& data, const char* name)
   preferences.end();
 }
 
-imu_calibration_data_t readCalibrationData(const char* name)
+imu_calibration_data_t read_calibration_data(const char* name)
 {
   imu_calibration_data_t data;
 
@@ -113,18 +113,18 @@ imu_calibration_data_t readCalibrationData(const char* name)
 
 Imu::Imu() {}
 
-void Imu::init(bool shouldCalibrate)
+void Imu::init(bool should_calibrate)
 {
   // TODO: figure out how to calibrate the IMU
 
-  if (!imuInitialized)
+  if (!imu_initialized)
   {
     // Start I2C bus
     Wire1.begin(27, 26);
     // Instantiate IMU objects
     lsm6ds.begin_I2C(LSM6DS_I2CADDR_DEFAULT, &Wire1);
     lis3mdl.begin_I2C(LIS3MDL_I2CADDR_DEFAULT, &Wire1);
-    imuInitialized = true;
+    imu_initialized = true;
   }
 
   // Configure IMU rates and ranges
@@ -152,14 +152,14 @@ void Imu::init(bool shouldCalibrate)
   delay(1000);
 
   // Calibrate IMU
-  if (shouldCalibrate)
+  if (should_calibrate)
   {
     calibrate();
   }
   else
   {
     // Read calibration data from flash
-    calibrationData = readCalibrationData("A");
+    calibration_data = read_calibration_data("A");
 
     // CALIBRATION DEBUG
     // Serial.printf("Accel bias: %f, %f, %f", calibrationData.accel_bias[0],
@@ -180,7 +180,7 @@ void Imu::init(bool shouldCalibrate)
   }
 
   filter.begin(100);
-  lastUpdate = millis();
+  last_update = millis();
 }
 
 // Default initializer
@@ -208,35 +208,35 @@ void Imu::calibrate()
 
   delay(1000);
 
-  bool calibrationReceived = false;
+  bool calibration_received = false;
 
   // Loop until we receive calibration data from motioncal
   size_t loopcount = 0;
-  while (!calibrationReceived)
+  while (!calibration_received)
   {
     // Read data from IMU and print in motioncal format
     read();
     serial_print_motioncal(accel_event, gyro_event, mag_event);
 
     // Update calibration status
-    calibrationReceived = receiveCalibration();
+    calibration_received = receive_calibration();
     loopcount++;
   }
 
   // Save magnetic calibration data to struct
-  calibrationData.mag_soft_iron[0] = offsets[10];
-  calibrationData.mag_soft_iron[1] = offsets[13];
-  calibrationData.mag_soft_iron[2] = offsets[14];
-  calibrationData.mag_soft_iron[3] = offsets[13];
-  calibrationData.mag_soft_iron[4] = offsets[11];
-  calibrationData.mag_soft_iron[5] = offsets[15];
-  calibrationData.mag_soft_iron[6] = offsets[14];
-  calibrationData.mag_soft_iron[7] = offsets[15];
-  calibrationData.mag_soft_iron[8] = offsets[12];
+  calibration_data.mag_soft_iron[0] = offsets[10];
+  calibration_data.mag_soft_iron[1] = offsets[13];
+  calibration_data.mag_soft_iron[2] = offsets[14];
+  calibration_data.mag_soft_iron[3] = offsets[13];
+  calibration_data.mag_soft_iron[4] = offsets[11];
+  calibration_data.mag_soft_iron[5] = offsets[15];
+  calibration_data.mag_soft_iron[6] = offsets[14];
+  calibration_data.mag_soft_iron[7] = offsets[15];
+  calibration_data.mag_soft_iron[8] = offsets[12];
 
-  calibrationData.mag_hard_iron[0] = offsets[6];
-  calibrationData.mag_hard_iron[1] = offsets[7];
-  calibrationData.mag_hard_iron[2] = offsets[8];
+  calibration_data.mag_hard_iron[0] = offsets[6];
+  calibration_data.mag_hard_iron[1] = offsets[7];
+  calibration_data.mag_hard_iron[2] = offsets[8];
 
   // Now we need to calibrate the gyro and accel
   // Blink onboard led three times to indicate calibration starting
@@ -254,12 +254,12 @@ void Imu::calibrate()
   // Loop 1000 times
 
   // Create 6 floats to store the running sum of the gyro and accel data
-  float gyroXSum = 0;
-  float gyroYSum = 0;
-  float gyroZSum = 0;
-  float accelXSum = 0;
-  float accelYSum = 0;
-  float accelZSum = 0;
+  float gyro_x_sum = 0;
+  float gyro_y_sum = 0;
+  float gyro_z_sum = 0;
+  float accel_x_sum = 0;
+  float accel_y_sum = 0;
+  float accel_z_sum = 0;
 
   for (int i = 0; i < 1000; i++)
   {
@@ -267,13 +267,13 @@ void Imu::calibrate()
     read();
 
     // Add gyro and accel data to running sum
-    gyroXSum += gyro_event.gyro.x;
-    gyroYSum += gyro_event.gyro.y;
-    gyroZSum += gyro_event.gyro.z;
+    gyro_x_sum += gyro_event.gyro.x;
+    gyro_y_sum += gyro_event.gyro.y;
+    gyro_z_sum += gyro_event.gyro.z;
 
-    accelXSum += accel_event.acceleration.x;
-    accelYSum += accel_event.acceleration.y;
-    accelZSum += accel_event.acceleration.z;
+    accel_x_sum += accel_event.acceleration.x;
+    accel_y_sum += accel_event.acceleration.y;
+    accel_z_sum += accel_event.acceleration.z;
 
     // Blink onboard led to indicate calibration in progress
     digitalWrite(LED_PIN, HIGH);
@@ -283,19 +283,19 @@ void Imu::calibrate()
   }
 
   // Calculate the average gyro and accel data
-  calibrationData.gyro_bias[0] = gyroXSum / 1000;
-  calibrationData.gyro_bias[1] = gyroYSum / 1000;
-  calibrationData.gyro_bias[2] = gyroZSum / 1000;
+  calibration_data.gyro_bias[0] = gyro_x_sum / 1000;
+  calibration_data.gyro_bias[1] = gyro_y_sum / 1000;
+  calibration_data.gyro_bias[2] = gyro_z_sum / 1000;
 
-  calibrationData.accel_bias[0] = accelXSum / 1000;
-  calibrationData.accel_bias[1] = accelYSum / 1000;
-  calibrationData.accel_bias[2] = accelZSum / 1000;
+  calibration_data.accel_bias[0] = accel_x_sum / 1000;
+  calibration_data.accel_bias[1] = accel_y_sum / 1000;
+  calibration_data.accel_bias[2] = accel_z_sum / 1000;
 
   // Save calibration data using preferences
-  writeCalibrationData(calibrationData, "A");
+  write_calibration_data(calibration_data, "A");
 }
 
-bool Imu::receiveCalibration()
+bool Imu::receive_calibration()
 {
   byte b, i;
 
@@ -360,12 +360,12 @@ bool Imu::receiveCalibration()
   return false;
 }
 
-void Imu::applyCalibration()
+void Imu::apply_calibration()
 {
   // Apply gyro bias
-  gyro_event.gyro.x -= calibrationData.gyro_bias[0];
-  gyro_event.gyro.y -= calibrationData.gyro_bias[1];
-  gyro_event.gyro.z -= calibrationData.gyro_bias[2];
+  gyro_event.gyro.x -= calibration_data.gyro_bias[0];
+  gyro_event.gyro.y -= calibration_data.gyro_bias[1];
+  gyro_event.gyro.z -= calibration_data.gyro_bias[2];
 
   // Change unit to degrees per second
   gyro_event.gyro.x *= SENSORS_RADS_TO_DPS;
@@ -376,20 +376,20 @@ void Imu::applyCalibration()
 
   // Apply magnetometer calibration
   // First apply hard iron calibration
-  float mx = mag_event.magnetic.x - calibrationData.mag_hard_iron[0];
-  float my = mag_event.magnetic.y - calibrationData.mag_hard_iron[1];
-  float mz = mag_event.magnetic.z - calibrationData.mag_hard_iron[2];
+  float mx = mag_event.magnetic.x - calibration_data.mag_hard_iron[0];
+  float my = mag_event.magnetic.y - calibration_data.mag_hard_iron[1];
+  float mz = mag_event.magnetic.z - calibration_data.mag_hard_iron[2];
 
   // Then apply soft iron calibration
-  mag_event.magnetic.x = mx * calibrationData.mag_soft_iron[0] +
-                         my * calibrationData.mag_soft_iron[1] +
-                         mz * calibrationData.mag_soft_iron[2];
-  mag_event.magnetic.y = mx * calibrationData.mag_soft_iron[3] +
-                         my * calibrationData.mag_soft_iron[4] +
-                         mz * calibrationData.mag_soft_iron[5];
-  mag_event.magnetic.z = mx * calibrationData.mag_soft_iron[6] +
-                         my * calibrationData.mag_soft_iron[7] +
-                         mz * calibrationData.mag_soft_iron[8];
+  mag_event.magnetic.x = mx * calibration_data.mag_soft_iron[0] +
+                         my * calibration_data.mag_soft_iron[1] +
+                         mz * calibration_data.mag_soft_iron[2];
+  mag_event.magnetic.y = mx * calibration_data.mag_soft_iron[3] +
+                         my * calibration_data.mag_soft_iron[4] +
+                         mz * calibration_data.mag_soft_iron[5];
+  mag_event.magnetic.z = mx * calibration_data.mag_soft_iron[6] +
+                         my * calibration_data.mag_soft_iron[7] +
+                         mz * calibration_data.mag_soft_iron[8];
 }
 
 void Imu::loop()
@@ -398,41 +398,31 @@ void Imu::loop()
   read();
 
   // Apply calibration
-  applyCalibration();
+  apply_calibration();
 
   filter.update(gyro_event.gyro.x, gyro_event.gyro.y, gyro_event.gyro.z,
                 accel_event.acceleration.x, accel_event.acceleration.y,
                 accel_event.acceleration.z, mag_event.magnetic.x,
                 mag_event.magnetic.y, mag_event.magnetic.z,
-                (millis() - lastUpdate) / 1000.0f);
+                (millis() - last_update) / 1000.0f);
 
-  lastUpdate = millis();
+  last_update = millis();
 }
 
-float Imu::getRoll() { return filter.getRollRadians(); }
+float Imu::get_roll() { return filter.getRollRadians(); }
+float Imu::get_pitch() { return filter.getPitchRadians(); }
+float Imu::get_yaw() { return filter.getYawRadians(); }
 
-float Imu::getPitch() { return filter.getPitchRadians(); }
+float Imu::get_raw_accel_x() { return accel_event.acceleration.x; }
+float Imu::get_raw_accel_y() { return accel_event.acceleration.y; }
+float Imu::get_raw_accel_z() { return accel_event.acceleration.z; }
 
-float Imu::getPitchRate() { return filter.getPitchRate(); }
+float Imu::get_raw_gyro_x() { return gyro_event.gyro.x; }
+float Imu::get_raw_gyro_y() { return gyro_event.gyro.y; }
+float Imu::get_raw_gyro_z() { return gyro_event.gyro.z; }
 
-float Imu::getYaw() { return filter.getYawRadians(); }
-
-float Imu::getRawAccelX() { return accel_event.acceleration.x; }
-
-float Imu::getRawAccelY() { return accel_event.acceleration.y; }
-
-float Imu::getRawAccelZ() { return accel_event.acceleration.z; }
-
-float Imu::getRawGyroX() { return gyro_event.gyro.x; }
-
-float Imu::getRawGyroY() { return gyro_event.gyro.y; }
-
-float Imu::getRawGyroZ() { return gyro_event.gyro.z; }
-
-float Imu::getRawMagX() { return mag_event.magnetic.x; }
-
-float Imu::getRawMagY() { return mag_event.magnetic.y; }
-
-float Imu::getRawMagZ() { return mag_event.magnetic.z; }
+float Imu::get_raw_mag_x() { return mag_event.magnetic.x; }
+float Imu::get_raw_mag_y() { return mag_event.magnetic.y; }
+float Imu::get_raw_mag_z() { return mag_event.magnetic.z; }
 
 }  // namespace Imu
