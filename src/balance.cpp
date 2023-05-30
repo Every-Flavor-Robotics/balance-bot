@@ -1,134 +1,208 @@
-// #include "Options.h"
-// #include "drive_base.h"
-// #include "imu.h"
-// #include "common/pid.h"
+#include "Arduino.h"
+#include "Options.h"
+#include "common/lowpass_filter.h"
+#include "common/pid.h"
+#include "drive_base.h"
+#include "imu.h"
 
+// Create a start-up menu with 3 non-default options
+Options options(4);
+bool shouldCalibrateMotors;
+bool enableFocStudio;
+bool shouldCalibrateImu;
 
+// Create a drive base object
+DriveBase* drive_base = nullptr;
 
+// Create IMU
+Imu::Imu imu = Imu::Imu();
+// low pass
+LowPassFilter velocity_command = LowPassFilter(0.3f);
 
-// // Create a start-up menu with 3 non-default options
-// Options options(4);
-// bool shouldCalibrateMotors;
-// bool enableFocStudio;
-// bool shouldCalibrateImu;
+// float k_0 = 0.03535534f;
+// float k_1 = 3.11529036f;
+// float k_2 = 23.84869906f;
+// float k_3 = 14.1f;
 
-// // Create a drive base object
-// DriveBase* drive_base = nullptr;
+// float k_0 = 0.03535534f;
+// float k_1 = 3.15890315f;
+// float k_2 = 24.29259086f;
+// float k_3 = 14.2874019f;
 
-// // Create IMU
-// Imu::Imu imu = Imu::Imu();
+float standing_k_0 = 0.02536067977521028;
+float standing_k_1 = 3.258069289823837;
+float standing_k_2 = 25.39465377043689;
+float standing_k_3 = 15.19592074007437;
+float k_0 = 0.040824829046041344;
+float k_1 = 3.581318765549753;
+float k_2 = 28.127196312812885;
+float k_3 = 17.311472756698436;
 
-// // Instantiate a PID controller for balancing
-// // PIDController pid = PIDController(1.11f, 13.85f, 0.015f, 10000.0f, 20.0f);
+float zero_wheel_left = 0.0f;
+float zero_wheel_right = 0.0f;
 
-// float last_pitch = 0.0f;
-// float last_time = 0.0f;
+float zero_yaw = 0.0f;
 
-// float k_0 = 0.4472136f;
-// float k_1 = 0.59392093f;
-// float k_2 = 10.88024376f;
-// float k_3 = 3.16343493f;
+float angle_offset = -0.029824;
 
-// float zero_wheel = 0.0f;
+float target_freq = 250.0f;
 
+float desired_pos = 0;
+float desired_vel = 0;
 
-// void setup_helper()
-// {
+// Steering pid controller
+PIDController steering_pid = PIDController(3.2f, 0.0000f, 0.1f, 10000, 10000);
 
-//     // start serial
-//     Serial.begin(115200);
+// We need to log the following:
+// - time
+// - pitch
+// - pitch rate
+// - pitch accel
+// - wheel angle
+// - wheel rate
+// - wheel accel
+// - torque command
 
+int i = 0;
 
-//     // Add options and run menu before setting up motor
-//     options.addOption("Recalibrate motor");
-//     options.addOption("FOCStudio");
-//     options.addOption("Recalibrate motor + FOCStudio");
-//     options.addOption("Calibrate IMU");
-//     options.run();
+void setup()
+{
+  // start serial
+  Serial.begin(115200);
 
-//     drive_base = new DriveBase();
+  // Add options and run menu before setting up motor
+  // options.addOption("Recalibrate motor");
+  // options.addOption("FOCStudio");
+  // options.addOption("Recalibrate motor + FOCStudio");
+  // options.addOption("Calibrate IMU");
+  // options.run();
 
-//     int selected_option = options.getSelectedOption();
-//     shouldCalibrateMotors = selected_option == 0 || selected_option == 2;
-//     enableFocStudio = selected_option == 1 || selected_option == 2;
-//     shouldCalibrateImu = selected_option == 3;
-//     drive_base->init(shouldCalibrateMotors, enableFocStudio);
-//     imu.init(false);
+  drive_base = new DriveBase();
 
-//     delay(1000);
-//     drive_base->enable();
+  int selected_option = options.getSelectedOption();
+  // selected_option = 0;
 
-//     Serial.println("Letting IMU stabilize...");
-//     for (int i = 0; i < 1000; i++)
-//     {
-//         imu.loop();
-//     }
+  shouldCalibrateMotors = selected_option == 0 || selected_option == 2;
+  enableFocStudio = selected_option == 1 || selected_option == 2;
+  shouldCalibrateImu = selected_option == 3;
 
-//     last_pitch = imu.getPitch() * PI / 180.0f;
-//     last_time = (float)millis()/1000.0f;
-//     Serial.println("Starting loop...");
+  drive_base->init(shouldCalibrateMotors, enableFocStudio);
+  imu.init(false);
 
-//     delay(50);
-//     zero_wheel = drive_base->getLeftPosition();
+  delay(1000);
+  drive_base->enable();
 
+  Serial.println("Letting IMU stabilize...");
+  int stable_count = 0;
+  while (stable_count < 50)
+  {
+    imu.loop();
+    // pitch_rate_filter(imu.getRawGyroY() * 0.0174533f);
+    if (imu.getPitch() > 0.02f || imu.getPitch() < -0.02f)
+    {
+      stable_count = 0;
+    }
+    else
+    {
+      stable_count++;
+    }
+  }
 
-// }
+  float last_pitch = imu.getPitch();
+  Serial.println("Starting loop...");
+  zero_wheel_left = drive_base->getLeftPosition() - last_pitch;
+  zero_wheel_right = drive_base->getRightPosition() + last_pitch;
 
-// void loop_helper()
-// {
-//     // Start time
-//     // unsigned long start_time = micros();
+  zero_yaw = imu.getYaw();
 
-//     drive_base->loop();
-//     imu.loop();
+  delay(50);
+}
 
-//     // Compute error
-//     // For balancing alone, we only need the pitch angle, convert to radians
-//     float pitch = (imu.getPitch()) * PI / 180.0f;
+void loop()
+{
+  // Start time
+  unsigned long start_time = micros();
 
-//     float time = (float)millis()/1000.0f;
-//     float dt = time - last_time;
-//     float dp = pitch - last_pitch;
-//     float dpdt = dp/dt;
+  imu.loop();
 
-//     float wheel_position = drive_base->getLeftPosition();
-//     float wheel_velocity = drive_base->getLeftVelocity();
+  //////// Apply controller
 
+  // Generate state
+  // theta (wheel angle)
+  // theta_dot
+  // phi (pitch)
+  // phi_dot
 
-//     float command = (k_0*wheel_position + k_1*wheel_velocity + k_2*pitch + k_3*dpdt);
+  float time = (float)millis() / 1000.0f;
+  // float dt = time - last_time;
+  float pitch = (imu.getPitch());
+  // Convert deg/s to rad/s
+  float pitchRate =
+      imu.getRawGyroY() *
+      0.0174533f;  // pitch_rate_filter(imu.getRawGyroY() * 0.0174533f);
 
-//     drive_base->setTarget(command, command);
+  float wheel_position = ((drive_base->getLeftPosition() - zero_wheel_left) -
+                          (drive_base->getRightPosition() - zero_wheel_right)) /
+                         2;
+  float wheel_velocity =
+      (drive_base->getLeftVelocity() - drive_base->getRightVelocity()) / 2;
 
+  // u = -kx
+  float command;
+  float command_steer;
+  if (desired_vel > 0.1f || desired_vel < -0.1f)
+  {
+    command = -(k_0 * (wheel_position + pitch - desired_pos) +
+                k_1 * (wheel_velocity + pitchRate - desired_vel) + k_2 * pitch +
+                k_3 * pitchRate);
+    command_steer = steering_pid(imu.getYaw() - zero_yaw);
+  }
+  else
+  {
+    desired_pos = 0;
+    command = -(standing_k_0 * (wheel_position + pitch) +
+                standing_k_1 * (wheel_velocity + pitchRate) +
+                standing_k_2 * pitch + standing_k_3 * pitchRate);
+    command_steer = steering_pid(imu.getYaw() - zero_yaw);
+  }
 
-//     // Print control variables
-//     // Serial.print("Wheel Position: ");
-//     // Serial.print(wheel_position);
-//     // Serial.print(" Wheel Velocity: ");
-//     // Serial.print(wheel_velocity);
-//     // Serial.print(" Pitch: ");
-//     // Serial.print(pitch);
-//     // Serial.print(" dpdt: ");
-//     // Serial.print(dpdt);
-//     // Serial.print(" Command: ");
-//     // Serial.println(command);
+  if (i > 8000)
+  {
+    i = 0;
+  }
+  else if (i > 7000)
+  {
+    desired_vel = velocity_command(-15.0f);
+  }
+  else if (i > 5000)
+  {
+    desired_vel = velocity_command(0.0f);
+    // desired_vel = 0.0f;
+  }
 
+  else if (i > 4000)
+  {
+    desired_vel = velocity_command(15.0f);
+  }
+  else
+  {
+    desired_vel = velocity_command(0.0f);
+    // desired_vel = 0.0f;
+  }
 
-//     // Print loop time
-//     // Serial.print("Loop time: ");
-//     // Serial.print(micros() - start_time);
+  desired_pos += desired_vel * 0.004f;
 
+  drive_base->setTarget(command - command_steer, command + command_steer);
+  drive_base->loop();
 
-//     // // Print out the current roll, pitch, and yaw
-//     // // RPY for the IMU aligns with the robot's frame of reference
-//     // // Pitch will be the forward/backward tilt
-//     // // Serial.print("Roll: ");
-//     // // Serial.print(imu.getRoll());
-//     // // Serial.print(" Yaw: ");
-//     // // Serial.println(imu.getYaw());
-//     // Serial.print(" Pitch: ");
-//     // Serial.println(imu.getPitch());
-//     // Serial.print(" Command: ");
-//     // Serial.print(command);
-//     // Serial.print(" Velocity: ");
-//     // Serial.println(drive_base -> getLeftVelocity());
-// }
+  // Sleep to maintain target frequency
+  unsigned long end_time = micros();
+  unsigned long elapsed_time = end_time - start_time;
+  unsigned long target_time = (unsigned long)(1000000.0f / target_freq);
+  if (elapsed_time < target_time)
+  {
+    delayMicroseconds(target_time - elapsed_time);
+  }
+
+  i++;
+}
