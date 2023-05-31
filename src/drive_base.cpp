@@ -162,6 +162,12 @@ void DriveBase::enable()
   motor_right.enable();
 }
 
+void DriveBase::disable()
+{
+  motor_left.disable();
+  motor_right.disable();
+}
+
 // Getters
 float DriveBase::get_left_position() { return motor_left.shaftAngle(); }
 float DriveBase::get_left_velocity() { return motor_left.shaftVelocity(); }
