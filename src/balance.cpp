@@ -1,15 +1,14 @@
 #include "Arduino.h"
 #include "Options.h"
-#include "common/lowpass_filter.h"
 #include "common/pid.h"
 #include "drive_base.h"
 #include "imu.h"
 
 // Create a start-up menu with 3 non-default options
 Options options(4);
-bool shouldCalibrateMotors;
-bool enableFocStudio;
-bool shouldCalibrateImu;
+bool should_calibrate_motors;
+bool enable_foc_studio;
+bool should_calibrate_imu;
 
 // Create a drive base object
 DriveBase* drive_base = nullptr;
@@ -62,7 +61,6 @@ PIDController steering_pid = PIDController(3.2f, 0.0000f, 0.1f, 10000, 10000);
 // - wheel rate
 // - wheel accel
 // - torque command
-
 int i = 0;
 
 void setup()
@@ -82,11 +80,11 @@ void setup()
   int selected_option = options.getSelectedOption();
   // selected_option = 0;
 
-  shouldCalibrateMotors = selected_option == 0 || selected_option == 2;
-  enableFocStudio = selected_option == 1 || selected_option == 2;
-  shouldCalibrateImu = selected_option == 3;
+  should_calibrate_motors = selected_option == 0 || selected_option == 2;
+  enable_foc_studio = selected_option == 1 || selected_option == 2;
+  should_calibrate_imu = selected_option == 3;
 
-  drive_base->init(shouldCalibrateMotors, enableFocStudio);
+  drive_base->init(should_calibrate_motors, enable_foc_studio);
   imu.init(false);
 
   delay(1000);
@@ -97,8 +95,7 @@ void setup()
   while (stable_count < 50)
   {
     imu.loop();
-    // pitch_rate_filter(imu.getRawGyroY() * 0.0174533f);
-    if (imu.getPitch() > 0.02f || imu.getPitch() < -0.02f)
+    if (imu.get_pitch() > 0.02f || imu.get_pitch() < -0.02f)
     {
       stable_count = 0;
     }
@@ -108,12 +105,12 @@ void setup()
     }
   }
 
-  float last_pitch = imu.getPitch();
+  float last_pitch = imu.get_pitch();
   Serial.println("Starting loop...");
-  zero_wheel_left = drive_base->getLeftPosition() - last_pitch;
-  zero_wheel_right = drive_base->getRightPosition() + last_pitch;
+  zero_wheel_left = drive_base->get_left_position() - last_pitch;
+  zero_wheel_right = drive_base->get_right_position() + last_pitch;
 
-  zero_yaw = imu.getYaw();
+  zero_yaw = imu.get_yaw();
 
   delay(50);
 }
@@ -133,19 +130,18 @@ void loop()
   // phi (pitch)
   // phi_dot
 
-  float time = (float)millis() / 1000.0f;
   // float dt = time - last_time;
-  float pitch = (imu.getPitch());
+  float pitch = (imu.get_pitch());
   // Convert deg/s to rad/s
-  float pitchRate =
-      imu.getRawGyroY() *
-      0.0174533f;  // pitch_rate_filter(imu.getRawGyroY() * 0.0174533f);
+  float pitch_rate = imu.get_raw_gyro_y() * 0.0174533f;
 
-  float wheel_position = ((drive_base->getLeftPosition() - zero_wheel_left) -
-                          (drive_base->getRightPosition() - zero_wheel_right)) /
-                         2;
+  float wheel_position =
+      ((drive_base->get_left_position() - zero_wheel_left) -
+       (drive_base->get_right_position() - zero_wheel_right)) /
+      2;
+
   float wheel_velocity =
-      (drive_base->getLeftVelocity() - drive_base->getRightVelocity()) / 2;
+      (drive_base->get_left_velocity() - drive_base->get_right_velocity()) / 2;
 
   // u = -kx
   float command;
@@ -153,17 +149,17 @@ void loop()
   if (desired_vel > 0.1f || desired_vel < -0.1f)
   {
     command = -(k_0 * (wheel_position + pitch - desired_pos) +
-                k_1 * (wheel_velocity + pitchRate - desired_vel) + k_2 * pitch +
-                k_3 * pitchRate);
-    command_steer = steering_pid(imu.getYaw() - zero_yaw);
+                k_1 * (wheel_velocity + pitch_rate - desired_vel) +
+                k_2 * pitch + k_3 * pitch_rate);
+    command_steer = steering_pid(imu.get_yaw() - zero_yaw);
   }
   else
   {
     desired_pos = 0;
     command = -(standing_k_0 * (wheel_position + pitch) +
-                standing_k_1 * (wheel_velocity + pitchRate) +
-                standing_k_2 * pitch + standing_k_3 * pitchRate);
-    command_steer = steering_pid(imu.getYaw() - zero_yaw);
+                standing_k_1 * (wheel_velocity + pitch_rate) +
+                standing_k_2 * pitch + standing_k_3 * pitch_rate);
+    command_steer = steering_pid(imu.get_yaw() - zero_yaw);
   }
 
   if (i > 8000)
@@ -192,7 +188,7 @@ void loop()
 
   desired_pos += desired_vel * 0.004f;
 
-  drive_base->setTarget(command - command_steer, command + command_steer);
+  drive_base->set_target(command - command_steer, command + command_steer);
   drive_base->loop();
 
   // Sleep to maintain target frequency
