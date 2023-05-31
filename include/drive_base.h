@@ -37,6 +37,7 @@ class DriveBase
   void set_target(float target_left, float target_right);
 
   void enable();
+  void disable();
 
   float get_left_position();
   float get_left_velocity();
