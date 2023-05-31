@@ -1,6 +1,5 @@
 #include "Arduino.h"
 #include "Options.h"
-#include "common/lowpass_filter.h"
 #include "common/pid.h"
 #include "drive_base.h"
 #include "imu.h"
@@ -139,12 +138,9 @@ void loop()
   // phi_dot
 
   float time = (float)millis() / 1000.0f;
-  // float dt = time - last_time;
   float pitch = (imu.get_pitch());
   // Convert deg/s to rad/s
-  float pitch_rate =
-      imu.get_raw_gyro_x() *
-      0.0174533f;  // pitch_rate_filter(imu.getRawGyroY() * 0.0174533f);
+  float pitch_rate = imu.get_raw_gyro_x() * 0.0174533f;
 
   float wheel_position = drive_base->get_left_position() - zero_wheel;
   float wheel_velocity = drive_base->get_left_velocity();

@@ -69,16 +69,15 @@ void setup()
   Serial.begin(115200);
 
   // Add options and run menu before setting up motor
-  // options.addOption("Recalibrate motor");
-  // options.addOption("FOCStudio");
-  // options.addOption("Recalibrate motor + FOCStudio");
-  // options.addOption("Calibrate IMU");
-  // options.run();
+  options.addOption("Recalibrate motor");
+  options.addOption("FOCStudio");
+  options.addOption("Recalibrate motor + FOCStudio");
+  options.addOption("Calibrate IMU");
+  options.run();
 
   drive_base = new DriveBase();
 
   int selected_option = options.getSelectedOption();
-  // selected_option = 0;
 
   should_calibrate_motors = selected_option == 0 || selected_option == 2;
   enable_foc_studio = selected_option == 1 || selected_option == 2;
