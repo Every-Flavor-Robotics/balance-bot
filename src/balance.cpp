@@ -1,3 +1,6 @@
+#include <WiFi.h>
+#include <esp_now.h>
+
 #include "Arduino.h"
 #include "Options.h"
 #include "common/pid.h"
@@ -11,12 +14,14 @@ bool enable_foc_studio;
 bool should_calibrate_imu;
 
 // Create a drive base object
-DriveBase* drive_base = nullptr;
+DriveBase *drive_base = nullptr;
 
 // Create IMU
 Imu::Imu imu = Imu::Imu();
 // low pass
-LowPassFilter velocity_command = LowPassFilter(0.3f);
+LowPassFilter velocity_command = LowPassFilter(0.6f);
+
+LowPassFilter is_static_detector = LowPassFilter(1.0f);
 
 // float k_0 = 0.03535534f;
 // float k_1 = 3.11529036f;
@@ -29,7 +34,7 @@ LowPassFilter velocity_command = LowPassFilter(0.3f);
 // float k_3 = 14.2874019f;
 
 float standing_k_0 = 0.02536067977521028;
-float standing_k_1 = 3.258069289823837;
+float standing_k_1 = 3.278069289823837;
 float standing_k_2 = 25.39465377043689;
 float standing_k_3 = 15.19592074007437;
 float k_0 = 0.040824829046041344;
@@ -37,10 +42,13 @@ float k_1 = 3.581318765549753;
 float k_2 = 28.127196312812885;
 float k_3 = 17.311472756698436;
 
+bool pos_reset = false;
+
 float zero_wheel_left = 0.0f;
 float zero_wheel_right = 0.0f;
 
 float zero_yaw = 0.0f;
+float desired_yaw = 0.0f;
 
 float angle_offset = -0.029824;
 
@@ -48,20 +56,37 @@ float target_freq = 250.0f;
 
 float desired_pos = 0;
 float desired_vel = 0;
+const float MAX_VEL = 8.0f;
+float desired_steer_rate = 0;
+// Radians per second
+const float MAX_STEER_RATE = 1.7f;
 
 // Steering pid controller
-PIDController steering_pid = PIDController(3.2f, 0.0000f, 0.1f, 10000, 10000);
+PIDController steering_pid = PIDController(3.5f, 0.0000f, 0.1f, 10000, 10000);
 
-// We need to log the following:
-// - time
-// - pitch
-// - pitch rate
-// - pitch accel
-// - wheel angle
-// - wheel rate
-// - wheel accel
-// - torque command
-int i = 0;
+// Joystick data struct
+// uint8_t broadcast_address[] = {0x24, 0x0A, 0xC4, 0x00, 0x4C, 0x6E};
+// Create struct for data transmission
+const int JOYSTICK_DATA_LEN = (6) * sizeof(int);
+typedef union
+{
+  struct __attribute__((packed))
+  {
+    int joy1_x;
+    int joy1_y;
+    int joy1_sw;
+
+    int joy2_x;
+    int joy2_y;
+    int joy2_sw;
+  };
+
+  uint8_t raw[JOYSTICK_DATA_LEN];
+} joystick_data_t;
+
+// Callback for receiving joystick data over ESPNow
+void on_joystick_data_receive(const uint8_t *mac, const uint8_t *incoming_data,
+                              int len);
 
 void setup()
 {
@@ -109,7 +134,16 @@ void setup()
   zero_wheel_left = drive_base->get_left_position() - last_pitch;
   zero_wheel_right = drive_base->get_right_position() + last_pitch;
 
-  zero_yaw = imu.get_yaw();
+  zero_yaw = 0.0f;  // imu.get_yaw();
+
+  // Setup ESP Now
+  WiFi.mode(WIFI_STA);
+  if (esp_now_init() != ESP_OK)
+  {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+  esp_now_register_recv_cb(on_joystick_data_receive);
 
   delay(50);
 }
@@ -142,50 +176,52 @@ void loop()
   float wheel_velocity =
       (drive_base->get_left_velocity() - drive_base->get_right_velocity()) / 2;
 
+  // Get yaw from wheel positions
+  float yaw = -((drive_base->get_left_position() - zero_wheel_left) +
+                (drive_base->get_right_position() - zero_wheel_right)) /
+              2;
+
+  desired_yaw += desired_steer_rate * 0.004f;
+
+  float filtered_velocity = is_static_detector(abs(wheel_velocity));
+
   // u = -kx
   float command;
   float command_steer;
-  if (desired_vel > 0.1f || desired_vel < -0.1f)
+  if (desired_vel > 0.05f || desired_vel < -0.05f)
   {
+    desired_pos = wheel_position + pitch + desired_vel * 0.004f;
+
     command = -(k_0 * (wheel_position + pitch - desired_pos) +
                 k_1 * (wheel_velocity + pitch_rate - desired_vel) +
                 k_2 * pitch + k_3 * pitch_rate);
-    command_steer = steering_pid(imu.get_yaw() - zero_yaw);
+    command_steer = steering_pid(yaw - zero_yaw - desired_yaw);
   }
   else
   {
-    desired_pos = 0;
-    command = -(standing_k_0 * (wheel_position + pitch) +
+    float steer_error = yaw - zero_yaw - desired_yaw;
+    // Once the robot stops oscillating, reset the desired position
+    if (filtered_velocity < 0.05f && !pos_reset)
+    {
+      desired_pos = wheel_position;
+      pos_reset = true;
+    }
+    else if (filtered_velocity > 0.05f || abs(steer_error) > 0.1f)
+    {
+      pos_reset = false;
+    }
+
+    command = -(standing_k_0 * (wheel_position + pitch - desired_pos) +
                 standing_k_1 * (wheel_velocity + pitch_rate) +
                 standing_k_2 * pitch + standing_k_3 * pitch_rate);
-    command_steer = steering_pid(imu.get_yaw() - zero_yaw);
+    command_steer = steering_pid(steer_error);
   }
 
-  if (i > 8000)
-  {
-    i = 0;
-  }
-  else if (i > 7000)
-  {
-    desired_vel = velocity_command(-15.0f);
-  }
-  else if (i > 5000)
-  {
-    desired_vel = velocity_command(0.0f);
-    // desired_vel = 0.0f;
-  }
-
-  else if (i > 4000)
-  {
-    desired_vel = velocity_command(15.0f);
-  }
-  else
-  {
-    desired_vel = velocity_command(0.0f);
-    // desired_vel = 0.0f;
-  }
-
-  desired_pos += desired_vel * 0.004f;
+  // Print desired steer rate and desired vel
+  //   Serial.print("Desired steer rate: ");
+  //   Serial.print(desired_steer_rate);
+  //   Serial.print(" Desired vel: ");
+  //   Serial.println(desired_vel);
 
   drive_base->set_target(command - command_steer, command + command_steer);
   drive_base->loop();
@@ -198,6 +234,18 @@ void loop()
   {
     delayMicroseconds(target_time - elapsed_time);
   }
+}
 
-  i++;
+// Function definitions
+void on_joystick_data_receive(const uint8_t *mac, const uint8_t *incoming_data,
+                              int len)
+{
+  joystick_data_t data;
+  memcpy(&data.raw, incoming_data, JOYSTICK_DATA_LEN);
+
+  //   Map joy1_x to desired_vel
+  //   Map joy2_y to desired_steer_rate
+
+  desired_vel = MAX_VEL * ((float)data.joy1_y / 100.0f);
+  desired_steer_rate = -MAX_STEER_RATE * ((float)data.joy2_x / 100.0f);
 }
