@@ -7,6 +7,19 @@
 #include "drive_base.h"
 #include "imu.h"
 
+// Function to print at a maximum frequency
+void freq_println(String str, int freq)
+{
+  static unsigned long last_print_time = 0;
+  unsigned long now = millis();
+
+  if (now - last_print_time > 1000 / freq)
+  {
+    Serial.println(str);
+    last_print_time = now;
+  }
+}
+
 // Create a start-up menu with 3 non-default options
 Options options(4);
 bool should_calibrate_motors;
@@ -50,7 +63,7 @@ float zero_wheel_right = 0.0f;
 float zero_yaw = 0.0f;
 float desired_yaw = 0.0f;
 
-float angle_offset = -0.029824;
+float angle_offset = -0.003;
 
 float target_freq = 250.0f;
 
@@ -93,6 +106,8 @@ void setup()
   // start serial
   Serial.begin(115200);
 
+  delay(3000);
+
   // Add options and run menu before setting up motor
   options.addOption("Recalibrate motor");
   options.addOption("FOCStudio");
@@ -108,7 +123,7 @@ void setup()
   enable_foc_studio = selected_option == 1 || selected_option == 2;
   should_calibrate_imu = selected_option == 3;
 
-  drive_base->init(should_calibrate_motors, enable_foc_studio);
+  drive_base->init(false, enable_foc_studio);
   imu.init(false);
 
   delay(1000);
@@ -151,7 +166,7 @@ void setup()
 void loop()
 {
   // Start time
-  unsigned long start_time = micros();
+  //   unsigned long start_time = micros();
 
   imu.loop();
 
@@ -164,21 +179,22 @@ void loop()
   // phi_dot
 
   // float dt = time - last_time;
-  float pitch = (imu.get_pitch());
+  float pitch = (imu.get_pitch() - angle_offset);
+  String str = String(pitch, 10);
+  freq_println(str, 10);
   // Convert deg/s to rad/s
   float pitch_rate = imu.get_raw_gyro_y() * 0.0174533f;
 
   float wheel_position =
-      ((drive_base->get_left_position() - zero_wheel_left) -
+      (-(drive_base->get_left_position() - zero_wheel_left) -
        (drive_base->get_right_position() - zero_wheel_right)) /
       2;
 
   float wheel_velocity =
-      (drive_base->get_left_velocity() - drive_base->get_right_velocity()) / 2;
-
+      (-drive_base->get_left_velocity() - drive_base->get_right_velocity()) / 2;
   // Get yaw from wheel positions
-  float yaw = -((drive_base->get_left_position() - zero_wheel_left) +
-                (drive_base->get_right_position() - zero_wheel_right)) /
+  float yaw = (-(drive_base->get_left_position() - zero_wheel_left) +
+               (drive_base->get_right_position() - zero_wheel_right)) /
               2;
 
   desired_yaw += desired_steer_rate * 0.004f;
@@ -192,10 +208,10 @@ void loop()
   {
     desired_pos = wheel_position + pitch + desired_vel * 0.004f;
 
-    command = -(k_0 * (wheel_position + pitch - desired_pos) +
-                k_1 * (wheel_velocity + pitch_rate - desired_vel) +
+    command = -(k_0 * (wheel_position - pitch - desired_pos) +
+                k_1 * (wheel_velocity - pitch_rate - desired_vel) +
                 k_2 * pitch + k_3 * pitch_rate);
-    command_steer = steering_pid(yaw - zero_yaw - desired_yaw);
+    command_steer = -steering_pid(yaw - zero_yaw - desired_yaw);
   }
   else
   {
@@ -214,7 +230,7 @@ void loop()
     command = -(standing_k_0 * (wheel_position + pitch - desired_pos) +
                 standing_k_1 * (wheel_velocity + pitch_rate) +
                 standing_k_2 * pitch + standing_k_3 * pitch_rate);
-    command_steer = steering_pid(steer_error);
+    command_steer = -steering_pid(steer_error);
   }
 
   // Print desired steer rate and desired vel
@@ -222,18 +238,20 @@ void loop()
   //   Serial.print(desired_steer_rate);
   //   Serial.print(" Desired vel: ");
   //   Serial.println(desired_vel);
-
-  drive_base->set_target(command - command_steer, command + command_steer);
+  //   String str = String(command_steer);
+  //   freq_println(str, 10);
+  //
+  drive_base->set_target(-command - command_steer, command + command_steer);
   drive_base->loop();
 
-  // Sleep to maintain target frequency
-  unsigned long end_time = micros();
-  unsigned long elapsed_time = end_time - start_time;
-  unsigned long target_time = (unsigned long)(1000000.0f / target_freq);
-  if (elapsed_time < target_time)
-  {
-    delayMicroseconds(target_time - elapsed_time);
-  }
+  //   // Sleep to maintain target frequency
+  //   unsigned long end_time = micros();
+  //   unsigned long elapsed_time = end_time - start_time;
+  //   unsigned long target_time = (unsigned long)(1000000.0f / target_freq);
+  //   if (elapsed_time < target_time)
+  //   {
+  //     delayMicroseconds(target_time - elapsed_time);
+  //   }
 }
 
 // Function definitions
