@@ -80,6 +80,7 @@ class DriveBase
 
   bool should_calibrate;
   bool enable_foc_studio;
+  bool enabled = false;
 
   // Encoder, motor, and driver instances
   // MT6701Sensor encoder_left;
