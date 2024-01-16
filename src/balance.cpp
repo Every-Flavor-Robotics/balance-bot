@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <esp_now.h>
+#include <esp_task_wdt.h>
 
 #include "Arduino.h"
 #include "Options.h"
@@ -19,6 +20,8 @@ void freq_println(String str, int freq)
     last_print_time = now;
   }
 }
+
+TaskHandle_t loop_foc_task;
 
 // Create a start-up menu with 3 non-default options
 Options options(4);
@@ -47,9 +50,9 @@ LowPassFilter is_static_detector = LowPassFilter(1.0f);
 // float k_3 = 14.2874019f;
 
 float standing_k_0 = 0.02536067977521028;
-float standing_k_1 = 3.278069289823837;
+float standing_k_1 = 3.308069289823837;
 float standing_k_2 = 25.39465377043689;
-float standing_k_3 = 15.19592074007437;
+float standing_k_3 = 15.20592074007437;
 float k_0 = 0.040824829046041344;
 float k_1 = 3.581318765549753;
 float k_2 = 28.127196312812885;
@@ -101,6 +104,12 @@ typedef union
 void on_joystick_data_receive(const uint8_t *mac, const uint8_t *incoming_data,
                               int len);
 
+void loop_foc(void *pvParameters);
+
+unsigned long loop_time = 0;
+double hz = 0;
+int samples = 0;
+unsigned long last_print_time = 0;
 void setup()
 {
   // start serial
@@ -127,7 +136,6 @@ void setup()
   imu.init(false);
 
   delay(1000);
-  drive_base->enable();
 
   Serial.println("Letting IMU stabilize...");
   int stable_count = 0;
@@ -161,12 +169,52 @@ void setup()
   esp_now_register_recv_cb(on_joystick_data_receive);
 
   delay(50);
+  loop_time = micros();
+  last_print_time = millis();
+
+  xTaskCreatePinnedToCore(
+      loop_foc,       /* Task function. */
+      "Loop FOC",     /* name of task. */
+      10000,          /* Stack size of task */
+      NULL,           /* parameter of the task */
+      1,              /* priority of the task */
+      &loop_foc_task, /* Task handle to keep track of created task */
+      1);             /* pin task to core 1 */
+
+  drive_base->enable();
+}
+
+void loop_foc(void *pvParameters)
+{
+  Serial.print("Loop FOC running on core ");
+  Serial.println(xPortGetCoreID());
+
+  for (;;)
+  {
+    drive_base->loop();
+
+    //   Print loop frequency
+    esp_task_wdt_reset();
+
+    hz += 1000000.0f / (micros() - loop_time);
+    samples += 1;
+
+    loop_time = micros();
+
+    if (millis() - last_print_time > 1000)
+    {
+      //   Serial.print("Hz: ");
+      //   Serial.println(hz / samples);
+      hz = 0;
+      samples = 0;
+      last_print_time = millis();
+    }
+  }
 }
 
 void loop()
 {
   // Start time
-  //   unsigned long start_time = micros();
 
   imu.loop();
 
@@ -178,10 +226,7 @@ void loop()
   // phi (pitch)
   // phi_dot
 
-  // float dt = time - last_time;
   float pitch = (imu.get_pitch() - angle_offset);
-  String str = String(pitch, 10);
-  freq_println(str, 10);
   // Convert deg/s to rad/s
   float pitch_rate = imu.get_raw_gyro_y() * 0.0174533f;
 
@@ -227,22 +272,27 @@ void loop()
       pos_reset = false;
     }
 
-    command = -(standing_k_0 * (wheel_position + pitch - desired_pos) +
-                standing_k_1 * (wheel_velocity + pitch_rate) +
-                standing_k_2 * pitch + standing_k_3 * pitch_rate);
+    command = -0.90 * (standing_k_0 * (wheel_position + pitch - desired_pos) +
+                       standing_k_1 * (wheel_velocity + pitch_rate) +
+                       standing_k_2 * pitch + standing_k_3 * pitch_rate);
     command_steer = -steering_pid(steer_error);
   }
 
-  // Print desired steer rate and desired vel
-  //   Serial.print("Desired steer rate: ");
-  //   Serial.print(desired_steer_rate);
-  //   Serial.print(" Desired vel: ");
-  //   Serial.println(desired_vel);
-  //   String str = String(command_steer);
-  //   freq_println(str, 10);
-  //
+  //   String str = String(command) + "\t" + String(command_steer) + "\t" +
+  //                String(pitch) + "\t" + String(pitch_rate);
+
+  //   freq_println(str, 50);
+
   drive_base->set_target(-command - command_steer, command + command_steer);
-  drive_base->loop();
+
+  //   if (abs(pitch) > 0.6f || abs(wheel_velocity) > 8)
+  //   {
+  //     drive_base->disable();
+  //   }
+  //   else
+  //   {
+  //     drive_base->enable();
+  //   }
 
   //   // Sleep to maintain target frequency
   //   unsigned long end_time = micros();
@@ -252,6 +302,8 @@ void loop()
   //   {
   //     delayMicroseconds(target_time - elapsed_time);
   //   }
+
+  vTaskDelay(1 / portTICK_PERIOD_MS);
 }
 
 // Function definitions
