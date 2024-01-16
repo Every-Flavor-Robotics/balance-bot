@@ -125,6 +125,7 @@ void DriveBase::init(bool should_calibrate, bool enable_foc_studio)
 
   motor_left.disable();
   motor_right.disable();
+  enabled = false;
 }
 
 void DriveBase::set_target(float target_left, float target_right)
@@ -158,14 +159,18 @@ void DriveBase::loop()
 
 void DriveBase::enable()
 {
+  if (enabled) return;
   motor_left.enable();
   motor_right.enable();
+  enabled = true;
 }
 
 void DriveBase::disable()
 {
+  if (!enabled) return;
   motor_left.disable();
   motor_right.disable();
+  enabled = false;
 }
 
 // Getters
